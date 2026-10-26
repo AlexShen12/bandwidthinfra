@@ -6,6 +6,7 @@ from difflib import SequenceMatcher
 
 from pydantic import ValidationError
 
+from reviewer.infra import VERSION
 from reviewer.infra.bedrock import Completion, ModelError
 from reviewer.infra.config import Limits
 from reviewer.infra.models import InfraReviewResult
@@ -90,7 +91,7 @@ def validate_evidence(result, context):
 
 class InfrastructureReviewer:
     name = "infra"
-    version = "0.1.0"
+    version = VERSION
 
     def __init__(self, model_client, prompt, limits=None):
         self.client, self.prompt, self.limits = model_client, prompt, limits or Limits()

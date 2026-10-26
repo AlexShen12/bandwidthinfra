@@ -5,7 +5,13 @@ from conftest import git, make_repo
 
 from reviewer.infra.config import Limits, Policy
 from reviewer.infra.safety import display, redact
-from reviewer.infra.workspace import GitSnapshots, annotate_patch, collect_context, safe_path
+from reviewer.infra.workspace import (
+    GitSnapshots,
+    _excerpt,
+    annotate_patch,
+    collect_context,
+    safe_path,
+)
 
 
 def test_exact_diff_evidence_ranges(context):
@@ -171,3 +177,35 @@ def test_redaction_preserves_line_numbers_and_inert_output():
         "<script>alert</script> @someone ![leak](https://example.test/x)"
     )
     assert "@someone" not in display("@someone")
+
+
+@pytest.mark.parametrize("budget", [400, 12_000])
+def test_cache_decorator_stays_attached_and_excerpts_follow_source_order(budget):
+    text = (
+        "from functools import lru_cache\n"
+        + "# context padding\n" * 70
+        + "@lru_cache(maxsize=32)\ndef read_attachment(bucket, key):\n"
+        + "    return s3.get_object(Bucket=bucket, Key=key)['Body'].read()\n\n"
+        + "def prepare_notifications(recipients, bucket, key):\n"
+        + "    return [(r, read_attachment(bucket, key)) for r in recipients]\n"
+    )
+    excerpts, used, _ = _excerpt("head", "app.py", text, {len(text.splitlines())}, budget)
+    assert used <= budget
+    assert [item.start_line for item in excerpts] == sorted(item.start_line for item in excerpts)
+    assert any("@lru_cache(maxsize=32)\ndef read_attachment" in item.content for item in excerpts)
+    lines = text.splitlines()
+    for item in excerpts:
+        assert item.content == "\n".join(lines[item.start_line - 1 : item.end_line]) + "\n"
+
+
+def test_overlapping_selected_ranges_merge_into_one_excerpt():
+    text = (
+        "from functools import lru_cache\n\n@lru_cache(maxsize=32)\n"
+        "def read_attachment(bucket, key):\n    return remote_read(bucket, key)\n\n"
+        "def prepare(recipients, bucket, key):\n"
+        "    return [read_attachment(bucket, key) for _ in recipients]\n"
+    )
+    excerpts, _, partial = _excerpt("head", "app.py", text, {8}, 12_000)
+    assert len(excerpts) == 1
+    assert excerpts[0].content == text
+    assert not partial

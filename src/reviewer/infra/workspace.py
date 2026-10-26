@@ -396,44 +396,57 @@ def _spans(path, text, centers):
                 node.id for fn in touched for node in ast.walk(fn) if isinstance(node, ast.Name)
             }
             selected = [*touched, *[node for node in functions if node.name in names]]
-            spans = [(node.lineno, node.end_lineno) for node in selected] + spans
+            spans = [
+                (
+                    min([node.lineno, *[item.lineno for item in node.decorator_list]]),
+                    node.end_lineno,
+                )
+                for node in selected
+            ] + spans
         except (SyntaxError, ValueError, RecursionError):
             pass
     return spans
 
 
 def _excerpt(snapshot, path, text, centers, char_budget):
-    lines, taken, output, used = text.splitlines(), set(), [], 0
+    lines, taken, used = text.splitlines(), set(), 0
     for start, end in _spans(path, text, centers):
-        block_start, content = None, []
         for line in range(start, end + 1):
             if line in taken:
                 continue
             row = lines[line - 1] + "\n"
             if used + len(row) > char_budget:
                 break
-            if block_start is None:
-                block_start = line
-            elif line != block_start + len(content):
-                output.append(
-                    Excerpt(
-                        snapshot,
-                        path,
-                        block_start,
-                        block_start + len(content) - 1,
-                        "".join(content),
-                    )
-                )
-                block_start, content = line, []
-            content.append(row)
             taken.add(line)
             used += len(row)
-        if content:
+    # Prioritize selection by relevance, then present selected lines in source
+    # order. Joining adjacent ranges keeps decorators attached to their helpers.
+    output, block_start, previous = [], None, None
+    for line in sorted(taken):
+        if previous is not None and line != previous + 1:
             output.append(
                 Excerpt(
-                    snapshot, path, block_start, block_start + len(content) - 1, "".join(content)
+                    snapshot,
+                    path,
+                    block_start,
+                    previous,
+                    "\n".join(lines[block_start - 1 : previous]) + "\n",
                 )
             )
+            block_start = None
+        if block_start is None:
+            block_start = line
+        previous = line
+    if block_start is not None:
+        output.append(
+            Excerpt(
+                snapshot,
+                path,
+                block_start,
+                previous,
+                "\n".join(lines[block_start - 1 : previous]) + "\n",
+            )
+        )
     return output, used, len(taken) < len(lines)
 
 

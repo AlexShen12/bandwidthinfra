@@ -112,11 +112,24 @@ The model sees pricing metadata/IDs, not the amounts. Python renders estimates a
 
 Local verification on October 26, 2026:
 
-- 129 offline tests passed; Ruff lint and formatting checks passed.
+- 132 offline tests passed for `0.1.1`; Ruff lint and formatting checks passed.
 - Both workflows passed actionlint 1.7.12; optional Terraform configuration passed `terraform validate` without applying resources.
 - All 18 evaluation contexts prepared successfully. A read-only fake-model dry run also completed against the prototype's PR 2. Neither run measures model accuracy, and neither invoked Bedrock or posted a review.
 - Documentation links resolve. The dev App `bandwidth-infra-reviewer-dev` is registered (App ID `5474940`) and installed only on `AlexShen12/bandwidthinfra` (installation `175332427`). Its repository variable and signing-key secret are configured. A temporary installation token verified the repository scope, exact permissions, and commenter-permission lookup; the token was revoked immediately afterward. Webhook subscriptions are empty.
-- Fresh Bedrock credentials, account/model approval, default-branch deployment, and live model acceptance remain pending. No paid inference has run.
+- The operator confirmed the AWS account/region/model and configured a fresh Bedrock key. [Implementation PR #1](https://github.com/AlexShen12/bandwidthinfra/pull/1) is merged into `main`. Two live `0.1.0` sandbox reviews completed; see the quality limitation below.
+
+### Initial live sandbox results
+
+The [seeded regression](https://github.com/AlexShen12/bandwidthinfra/pull/2) was identified correctly, with one inline finding on the changed S3 read at line 9. Repeating its command produced an "already reviewed" response and no second review. The [cached-helper control](https://github.com/AlexShen12/bandwidthinfra/pull/3) produced one false positive: the model overlooked the unchanged `lru_cache` and asserted a remote read per helper invocation.
+
+| Category | Positive cases | Control cases | True positives | False positives | Missed expected issues |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Requests | 1 | 1 | 1 | 1 | 0 |
+| Other eight categories | 0 | 0 | 0 | 0 | 0 (not evaluated live) |
+
+For these two smoke cases only, the preliminary requests precision is 1/2 and recall is 1/1. These labels come from agent inspection of the seeded source; human adjudication of the full 18-case suite remains required before a team pilot. These counts do not establish general review quality.
+
+Investigation found that context excerpts placed the helper definition before a separate fragment ending with its cache decorator. Version `0.1.1` includes decorators when selecting functions, joins adjacent selected ranges, presents excerpts in source order, and reinforces mitigation checks in the prompt. Its offline regression tests pass; live revalidation is pending.
 
 `make check` runs lint and offline tests. The tests stub GitHub/Bedrock and create isolated local Git fixtures; they do not execute fixture source or call live AWS.
 
@@ -135,7 +148,7 @@ A judgment is `{"case_id":"requests-positive","finding_index":0,"expected_id":"r
 
 ## Remaining rollout and future work
 
-- Live acceptance requires the registered/installed App, repository secrets, default-branch workflow, and sponsor-confirmed model access. Offline checks alone do not establish live acceptance or review quality.
+- Revalidate `0.1.1` on both sandbox cases after deployment. Complete the full live fixture suite and human adjudication before a team pilot; the initial cached-control false positive prevents treating `0.1.0` as quality-accepted.
 - Add automated Infracost execution only when an approved pricing integration is available; retain the existing supplied-evidence boundary.
 - Add read-only model tools if observed context gaps justify moving beyond one prepared-context call.
 - Add a trusted workload-profile input, broader parsers/reference indexing, larger datasets and held-out fixtures after live adjudication.

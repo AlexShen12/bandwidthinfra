@@ -56,10 +56,13 @@ Trace and verify:
 - Resolve what the called helper actually does and where it creates or sends a request.
 - Determine which loops or consumers reach the operation and whether every item, selected items, or cache misses cause it.
 - Compare the old and new batching, cache scope, invalidation, reuse, and pagination behavior.
+- Read helper decorators and wrappers before counting remote operations. An unchanged `functools.cache` or `lru_cache` around a helper with identical arguments in a serial loop means repeated helper calls reuse the cached result; they are not a remote call per item. Check whether keys vary, invalidation changed, eviction is possible on this path, or concurrent misses are evidenced. Do not invent those conditions to disregard an existing cache.
 - Inspect actual input bounds. A page size limits a page; iterating all pages can still process the entire collection.
 - Describe operations per invocation only when the code supports the relationship. Conditional execution and caching may make a number an upper bound.
 
 Do not flag merely because a loop or parallel operation exists. Do not count a lazy query builder as a database request before an execution point is shown. Concurrency may change peak load without changing the total number of requests.
+
+Before emitting any amplification finding, check the complete supplied helper and its decorators for an existing mitigation. Explain an evidenced bypass or removal if a mitigation exists. Do not recommend adding caching when unchanged caching already covers the same operation and arguments. If the available context cannot establish this, mark coverage limited instead of asserting a request per helper invocation.
 
 Recommend a specific batch operation, hoisted invariant read, request-scoped cache, or bounded fan-out when compatible with the data semantics. Do not suggest caching user-specific or mutable data without checking correctness and freshness constraints.
 
