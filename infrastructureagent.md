@@ -139,6 +139,21 @@ For these same two smoke cases only, preliminary requests precision changed from
 
 Investigation found that context excerpts placed the helper definition before a separate fragment ending with its cache decorator. Version `0.1.1` includes decorators when selecting functions, joins adjacent selected ranges, presents excerpts in source order, and reinforces mitigation checks in the prompt. Its [regression review](https://github.com/AlexShen12/bandwidthinfra/pull/2#pullrequestreview-5647497010) retained the correct inline finding; its [cached-helper review](https://github.com/AlexShen12/bandwidthinfra/pull/3#pullrequestreview-5647497248) correctly returned zero findings. Both used one analysis call and posted against the same pinned fixture commits. The historical `0.1.0` false-positive comment remains visible for audit; the versioned `0.1.1` result is the corrected run.
 
+### Four-category demo with specialist boundaries
+
+[Demo PR #6](https://github.com/AlexShen12/bandwidthinfra/pull/6) compares a standalone notification application with its dedicated baseline. It contains four independent cost regressions and three unrelated defects. The [presenter guide](docs/demos/four-category-demo.md) contains the answer key and walkthrough; it was not supplied to the model.
+
+| Category | Seeded change | Expected | Found | Missed |
+| --- | --- | ---: | ---: | ---: |
+| Requests | S3 metadata lookup moved into the recipient loop | 1 | 1 | 0 |
+| Database | PostgreSQL predicate/limit replaced with fetching and filtering all rows | 1 | 1 | 0 |
+| Storage | Export expiration extended from 30 to 3,650 days | 1 | 1 | 0 |
+| Telemetry | Unique notification ID added as a CloudWatch metric dimension | 1 | 1 | 0 |
+
+The [live `0.1.1` review](https://github.com/AlexShen12/bandwidthinfra/pull/6#pullrequestreview-5647612486) posted four inline findings and no findings on the removed ownership check, removed HTML escaping, or billing arithmetic bug. These remain for security/correctness specialists. Context included all seven changed files plus the schema and export writer, with no omissions. The single analysis call took 17.9 seconds and used 9,475 input / 3,408 output tokens.
+
+These are agent-inspected counts for a seeded demonstration. The database comment overstates a particular scan strategy without a query plan; its supported root cause is the unbounded read and removed SQL predicate/limit. The index already exists. The guide explains this limitation and the distinction between metric-series cardinality and measured storage-byte costs. The demo does not replace the full fixture evaluation or human pilot approval.
+
 `make check` runs lint and offline tests. The tests stub GitHub/Bedrock and create isolated local Git fixtures; they do not execute fixture source or call live AWS.
 
 `eval/cases.json` contains one seeded positive and one negative/control example per category. It includes TypeScript, source-only changes, caching, checkpoints, partial-batch acknowledgment, lifecycle cleanup, and an autoscaling ceiling. Labels are hypotheses for human adjudication, not proof of model accuracy.
