@@ -1,0 +1,10 @@
+version: 1
+reviewers:
+  infra:
+    enabled: true
+    min_confidence: 0.85
+    cost_threshold_usd_month: 100
+max_comments: 10
+skip_label: skip-ai-review
+ignore_paths:
+  - docs/reference/**
