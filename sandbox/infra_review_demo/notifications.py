@@ -6,5 +6,7 @@ s3 = boto3.client("s3")
 
 
 def prepare_notifications(recipients, bucket, key):
-    attachment = s3.get_object(Bucket=bucket, Key=key)["Body"].read()
-    return [(recipient, attachment) for recipient in recipients]
+    return [
+        (recipient, s3.get_object(Bucket=bucket, Key=key)["Body"].read())
+        for recipient in recipients
+    ]
