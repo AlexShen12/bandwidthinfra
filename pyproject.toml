@@ -1,6 +1,6 @@
 [project]
 name = "bandwidth-infrastructure-agent"
-version = "0.1.0"
+version = "0.1.1"
 description = "Evidence-based infrastructure cost reviews using GitHub Apps and Amazon Bedrock"
 requires-python = ">=3.12"
 dependencies = [
