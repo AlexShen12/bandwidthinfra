@@ -13,6 +13,7 @@ def record_delivery(notification_id: str, status: str) -> None:
                 "Dimensions": [
                     {"Name": "Service", "Value": "notifications"},
                     {"Name": "Status", "Value": status},
+                    {"Name": "NotificationId", "Value": notification_id},
                 ],
                 "Value": 1,
                 "Unit": "Count",
