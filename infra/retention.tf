@@ -15,7 +15,7 @@ resource "aws_s3_bucket_lifecycle_configuration" "report_exports" {
     }
 
     expiration {
-      days = 30
+      days = 3650
     }
   }
 }
