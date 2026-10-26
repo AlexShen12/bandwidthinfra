@@ -116,7 +116,7 @@ Local verification on October 26, 2026:
 - Both workflows passed actionlint 1.7.12; optional Terraform configuration passed `terraform validate` without applying resources.
 - All 18 evaluation contexts prepared successfully. A read-only fake-model dry run also completed against the prototype's PR 2. Neither run measures model accuracy, and neither invoked Bedrock or posted a review.
 - Documentation links resolve. The dev App `bandwidth-infra-reviewer-dev` is registered (App ID `5474940`) and installed only on `AlexShen12/bandwidthinfra` (installation `175332427`). Its repository variable and signing-key secret are configured. A temporary installation token verified the repository scope, exact permissions, and commenter-permission lookup; the token was revoked immediately afterward. Webhook subscriptions are empty.
-- The operator confirmed the AWS account/region/model and configured a fresh Bedrock key. [Implementation PR #1](https://github.com/AlexShen12/bandwidthinfra/pull/1) is merged into `main`. Two live `0.1.0` sandbox reviews completed; see the quality limitation below.
+- The operator confirmed the AWS account/region/model and configured a fresh Bedrock key. [Implementation PR #1](https://github.com/AlexShen12/bandwidthinfra/pull/1) and [context fix PR #4](https://github.com/AlexShen12/bandwidthinfra/pull/4) are merged into `main`. Four live analysis calls completed across the original and corrected smoke checks; no repair call was needed.
 
 ### Initial live sandbox results
 
@@ -124,12 +124,20 @@ The [seeded regression](https://github.com/AlexShen12/bandwidthinfra/pull/2) was
 
 | Category | Positive cases | Control cases | True positives | False positives | Missed expected issues |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| Requests | 1 | 1 | 1 | 1 | 0 |
-| Other eight categories | 0 | 0 | 0 | 0 | 0 (not evaluated live) |
+| Requests (`0.1.0`) | 1 | 1 | 1 | 1 | 0 |
+| Requests (`0.1.1`) | 1 | 1 | 1 | 0 | 0 |
+| Database | 0 | 0 | 0 | 0 | 0 (not evaluated live) |
+| Compute/inference | 0 | 0 | 0 | 0 | 0 (not evaluated live) |
+| Jobs | 0 | 0 | 0 | 0 | 0 (not evaluated live) |
+| Retries | 0 | 0 | 0 | 0 | 0 (not evaluated live) |
+| Transfer | 0 | 0 | 0 | 0 | 0 (not evaluated live) |
+| Storage | 0 | 0 | 0 | 0 | 0 (not evaluated live) |
+| Telemetry | 0 | 0 | 0 | 0 | 0 (not evaluated live) |
+| Capacity | 0 | 0 | 0 | 0 | 0 (not evaluated live) |
 
-For these two smoke cases only, the preliminary requests precision is 1/2 and recall is 1/1. These labels come from agent inspection of the seeded source; human adjudication of the full 18-case suite remains required before a team pilot. These counts do not establish general review quality.
+For these same two smoke cases only, preliminary requests precision changed from 1/2 to 1/1; recall was 1/1 in both runs. These labels come from agent inspection of the seeded source; human adjudication of the full 18-case suite remains required before a team pilot. These counts do not establish general review quality.
 
-Investigation found that context excerpts placed the helper definition before a separate fragment ending with its cache decorator. Version `0.1.1` includes decorators when selecting functions, joins adjacent selected ranges, presents excerpts in source order, and reinforces mitigation checks in the prompt. Its offline regression tests pass; live revalidation is pending.
+Investigation found that context excerpts placed the helper definition before a separate fragment ending with its cache decorator. Version `0.1.1` includes decorators when selecting functions, joins adjacent selected ranges, presents excerpts in source order, and reinforces mitigation checks in the prompt. Its [regression review](https://github.com/AlexShen12/bandwidthinfra/pull/2#pullrequestreview-5647497010) retained the correct inline finding; its [cached-helper review](https://github.com/AlexShen12/bandwidthinfra/pull/3#pullrequestreview-5647497248) correctly returned zero findings. Both used one analysis call and posted against the same pinned fixture commits. The historical `0.1.0` false-positive comment remains visible for audit; the versioned `0.1.1` result is the corrected run.
 
 `make check` runs lint and offline tests. The tests stub GitHub/Bedrock and create isolated local Git fixtures; they do not execute fixture source or call live AWS.
 
@@ -148,7 +156,7 @@ A judgment is `{"case_id":"requests-positive","finding_index":0,"expected_id":"r
 
 ## Remaining rollout and future work
 
-- Revalidate `0.1.1` on both sandbox cases after deployment. Complete the full live fixture suite and human adjudication before a team pilot; the initial cached-control false positive prevents treating `0.1.0` as quality-accepted.
+- The `0.1.1` sandbox smoke checks pass. Complete the full live fixture suite and human adjudication before a team pilot; these two cases alone are not a general quality acceptance.
 - Add automated Infracost execution only when an approved pricing integration is available; retain the existing supplied-evidence boundary.
 - Add read-only model tools if observed context gaps justify moving beyond one prepared-context call.
 - Add a trusted workload-profile input, broader parsers/reference indexing, larger datasets and held-out fixtures after live adjudication.
