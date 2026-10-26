@@ -13,5 +13,4 @@ def read_attachment(bucket, key):
 
 
 def prepare_notifications(recipients, bucket, key):
-    attachment = read_attachment(bucket, key)
-    return [(recipient, attachment) for recipient in recipients]
+    return [(recipient, read_attachment(bucket, key)) for recipient in recipients]
