@@ -1,9 +1,0 @@
-{
-  "name": "bandwidth-infra-reviewer-dev",
-  "url": "https://github.com/AlexShen12/bandwidthinfra",
-  "description": "Reviews pull requests for evidence-backed infrastructure consumption and cost regressions through GitHub Actions and Bedrock.",
-  "public": true,
-  "hook_attributes": {"url": "https://github.com/AlexShen12/bandwidthinfra", "active": false},
-  "default_permissions": {"contents": "read", "metadata": "read", "pull_requests": "write", "issues": "write", "checks": "write"},
-  "default_events": []
-}
