@@ -1,0 +1,81 @@
+name: Infrastructure cost review
+
+on:
+  issue_comment:
+    types: [created]
+
+# Permissions for github.token. The separately generated App token handles writes.
+permissions:
+  contents: read
+
+concurrency:
+  group: infra-review-${{ github.repository }}-${{ github.event.issue.number }}
+  cancel-in-progress: false
+
+jobs:
+  review:
+    if: >-
+      github.event.issue.pull_request &&
+      github.event.comment.user.type != 'Bot' &&
+      github.event.sender.type != 'Bot' &&
+      contains(github.event.comment.body, vars.INFRA_TRIGGER || '@bandwidth-infra-reviewer')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      INFRA_TRIGGER: ${{ vars.INFRA_TRIGGER || '@bandwidth-infra-reviewer' }}
+      BEDROCK_AUTH_MODE: ${{ vars.BEDROCK_AUTH_MODE || 'api-key' }}
+      AWS_REGION: ${{ vars.AWS_REGION || 'us-west-2' }}
+      BEDROCK_MODEL_ID: ${{ vars.BEDROCK_MODEL_ID || 'openai.gpt-oss-120b-1:0' }}
+      TRUSTED_CONFIG_REF: ${{ github.sha }}
+    steps:
+      # issue_comment uses the default branch SHA. Never check out PR code here.
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.12'
+      - uses: astral-sh/setup-uv@d0d8abe699bfb85fec6de9f7adb5ae17292296ff # v6
+        with:
+          enable-cache: true
+      - run: uv sync --frozen --no-dev
+      - uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2
+        id: app
+        with:
+          app-id: ${{ vars.INFRA_APP_ID }}
+          private-key: ${{ secrets.INFRA_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name }}
+          permission-contents: read
+          permission-pull-requests: write
+          permission-issues: write
+          permission-checks: write
+      - name: Authorize exact command before AWS access
+        id: authorize
+        env:
+          GITHUB_TOKEN: ${{ steps.app.outputs.token }}
+        run: uv run --no-sync python .github/infra-reviewer/review.py --event-path "$GITHUB_EVENT_PATH" --authorize-only
+      - name: Get fresh AWS role credentials
+        id: aws
+        if: steps.authorize.outputs.authorized == 'true' && steps.authorize.outputs.command == 'review' && env.BEDROCK_AUTH_MODE == 'iam'
+        continue-on-error: true # The reviewer reports an App-owned neutral setup error.
+        uses: aws-actions/configure-aws-credentials@ff717079ee2060e4bcee96c4779b553acc87447c # v4
+        with:
+          role-to-assume: ${{ vars.BEDROCK_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          allowed-account-ids: ${{ vars.HOSTING_ACCOUNT_ID }}
+          role-session-name: infra-review-${{ github.run_id }}
+          role-duration-seconds: 1800
+      - name: Review and publish as the App
+        if: steps.authorize.outputs.authorized == 'true'
+        env:
+          GITHUB_TOKEN: ${{ steps.app.outputs.token }}
+          GITHUB_APP_SLUG: ${{ steps.app.outputs.app-slug }}
+          BEDROCK: real
+          AWS_BEARER_TOKEN_BEDROCK: ${{ env.BEDROCK_AUTH_MODE == 'api-key' && secrets.AWS_BEARER_TOKEN_BEDROCK || '' }}
+          OIDC_SETUP_OUTCOME: ${{ steps.aws.outcome }}
+        run: uv run --no-sync python .github/infra-reviewer/review.py --event-path "$GITHUB_EVENT_PATH" --post
